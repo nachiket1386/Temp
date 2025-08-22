@@ -1,0 +1,56 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('views.dashboard') }}">
+            <i class="bi bi-building"></i> LAMS
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <div class="navbar-nav me-auto">
+                {% if current_user.role.value == 'MASTER' %}
+                    <span class="navbar-text me-3">
+                        <span class="badge bg-danger">Master</span>
+                    </span>
+                {% elif current_user.company_ref %}
+                    <span class="navbar-text me-3">
+                        <i class="bi bi-building-fill"></i> {{ current_user.company_ref.name }}
+                    </span>
+                {% endif %}
+            </div>
+            
+            <div class="navbar-nav">
+                <!-- Notifications -->
+                <a class="nav-link position-relative" href="{{ url_for('views.notifications') }}">
+                    <i class="bi bi-bell"></i>
+                    {% if notifications > 0 %}
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            {{ notifications }}
+                        </span>
+                    {% endif %}
+                </a>
+                
+                <!-- User menu -->
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                        <span class="badge bg-{{ 'danger' if current_user.role.value == 'MASTER' else 'secondary' }} ms-1">
+                            {{ current_user.role.value.title() }}
+                        </span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}">
+                            <i class="bi bi-key"></i> Change Password
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>

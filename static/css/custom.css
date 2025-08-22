@@ -1,0 +1,379 @@
+/* Custom CSS for Labour Attendance Management System */
+
+/* Status color definitions using Bootstrap variables */
+:root {
+    --status-present: var(--bs-success);
+    --status-absent: var(--bs-danger);
+    --status-half: var(--bs-warning);
+    --status-deduction: var(--bs-secondary);
+}
+
+/* Sidebar styling */
+.sidebar {
+    position: fixed;
+    top: 56px; /* Account for navbar height */
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 48px 0 0;
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+}
+
+.sidebar-sticky {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    height: calc(100vh - 48px);
+    padding-top: .5rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Main content area */
+main {
+    margin-left: 0;
+}
+
+@media (min-width: 768px) {
+    main {
+        margin-left: 240px;
+    }
+}
+
+/* Status badges with consistent colors */
+.badge.status-present {
+    background-color: var(--status-present) !important;
+}
+
+.badge.status-absent {
+    background-color: var(--status-absent) !important;
+}
+
+.badge.status-half {
+    background-color: var(--status-half) !important;
+}
+
+.badge.status-deduction {
+    background-color: var(--status-deduction) !important;
+}
+
+/* Table enhancements */
+.table-attendance th {
+    background-color: var(--bs-gray-800);
+    border-color: var(--bs-gray-700);
+}
+
+.table-attendance td {
+    vertical-align: middle;
+}
+
+/* Mobile responsiveness for tables */
+@media (max-width: 767px) {
+    .table-responsive table,
+    .table-responsive thead,
+    .table-responsive tbody,
+    .table-responsive th,
+    .table-responsive td,
+    .table-responsive tr {
+        display: block;
+    }
+
+    .table-responsive thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .table-responsive tr {
+        border: 1px solid var(--bs-border-color);
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    .table-responsive td {
+        border: none;
+        border-bottom: 1px solid var(--bs-border-color);
+        position: relative;
+        padding-left: 50% !important;
+    }
+
+    .table-responsive td:before {
+        content: attr(data-label) ": ";
+        position: absolute;
+        left: 6px;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+        font-weight: bold;
+    }
+}
+
+/* Card enhancements */
+.card-attendance {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card-attendance:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Dashboard stat cards */
+.stat-card {
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-card .stat-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card .stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card .stat-label {
+    font-size: 0.9rem;
+    color: var(--bs-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Form enhancements */
+.form-floating > .form-control:focus,
+.form-floating > .form-control:not(:placeholder-shown) {
+    padding-top: 1.625rem;
+    padding-bottom: 0.625rem;
+}
+
+.form-floating > label {
+    opacity: 0.65;
+}
+
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label {
+    opacity: 0.65;
+    transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid transparent;
+    border-top: 2px solid var(--bs-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Notification enhancements */
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+    line-height: 18px;
+    text-align: center;
+    border-radius: 50%;
+}
+
+/* Time input styling */
+.time-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.time-input-group input[type="time"] {
+    flex: 1;
+}
+
+/* CSV upload area */
+.csv-upload-area {
+    border: 2px dashed var(--bs-border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.csv-upload-area:hover {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+}
+
+.csv-upload-area.dragover {
+    border-color: var(--bs-success);
+    background-color: var(--bs-success-bg-subtle);
+}
+
+/* Audit log styling */
+.audit-log-entry {
+    border-left: 4px solid var(--bs-border-color);
+    padding-left: 1rem;
+    margin-bottom: 1rem;
+}
+
+.audit-log-entry.create {
+    border-left-color: var(--bs-success);
+}
+
+.audit-log-entry.update {
+    border-left-color: var(--bs-info);
+}
+
+.audit-log-entry.delete {
+    border-left-color: var(--bs-danger);
+}
+
+.audit-log-entry.import {
+    border-left-color: var(--bs-warning);
+}
+
+/* Print styles */
+@media print {
+    .sidebar,
+    .navbar,
+    .btn,
+    .pagination {
+        display: none !important;
+    }
+
+    main {
+        margin-left: 0 !important;
+    }
+
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+
+    .table {
+        border-collapse: collapse !important;
+    }
+
+    .table th,
+    .table td {
+        border: 1px solid #000 !important;
+    }
+}
+
+/* Accessibility improvements */
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+    border-color: var(--bs-primary);
+}
+
+/* Skip to content link for screen readers */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: var(--bs-primary);
+    color: white;
+    padding: 8px;
+    text-decoration: none;
+    border-radius: 4px;
+    z-index: 1000;
+}
+
+.skip-link:focus {
+    top: 6px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .table {
+        border: 2px solid;
+    }
+
+    .card {
+        border: 2px solid;
+    }
+
+    .btn {
+        border-width: 2px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Dark mode specific adjustments */
+[data-bs-theme="dark"] .csv-upload-area {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-bs-theme="dark"] .notification-badge {
+    background-color: var(--bs-danger);
+    color: white;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bs-gray-200);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bs-gray-400);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--bs-gray-500);
+}
+
+[data-bs-theme="dark"] ::-webkit-scrollbar-track {
+    background: var(--bs-gray-800);
+}
+
+[data-bs-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: var(--bs-gray-600);
+}
+
+[data-bs-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: var(--bs-gray-500);
+}

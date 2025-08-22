@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - LAMS{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item active">Dashboard</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('views.export_data') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-download"></i> Export Data
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Role-specific dashboard content -->
+{% if current_user.role.value == 'MASTER' %}
+    <!-- Master Dashboard -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-buildings h1 text-primary"></i>
+                    <h5 class="card-title">{{ companies_count }}</h5>
+                    <p class="card-text">Companies</p>
+                    <a href="{{ url_for('views.companies') }}" class="btn btn-primary btn-sm">Manage</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-people h1 text-info"></i>
+                    <h5 class="card-title">{{ users_count }}</h5>
+                    <p class="card-text">Total Users</p>
+                    <a href="{{ url_for('views.master_users') }}" class="btn btn-info btn-sm">View</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-upload h1 text-success"></i>
+                    <h5 class="card-title">Import</h5>
+                    <p class="card-text">Attendance</p>
+                    <a href="{{ url_for('views.import_attendance') }}" class="btn btn-success btn-sm">Upload CSV</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-journal-text h1 text-warning"></i>
+                    <h5 class="card-title">Audit</h5>
+                    <p class="card-text">System Logs</p>
+                    <a href="{{ url_for('views.audit') }}" class="btn btn-warning btn-sm">View Logs</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if recent_imports %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-clock-history"></i> Recent Imports</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>User</th>
+                                    <th>Context</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in recent_imports %}
+                                <tr>
+                                    <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ log.actor_ref.username }}</td>
+                                    <td>{{ log.context or 'CSV Import' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+{% elif current_user.role.value == 'ROOT' %}
+    <!-- Root User Dashboard -->
+    {% if company %}
+    <div class="alert alert-info">
+        <i class="bi bi-building"></i> Managing: <strong>{{ company.name }}</strong>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-people h1 text-primary"></i>
+                    <h5 class="card-title">{{ employees_count }}</h5>
+                    <p class="card-text">Employees</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-person-badge h1 text-info"></i>
+                    <h5 class="card-title">{{ supervisors_count }}</h5>
+                    <p class="card-text">Supervisors</p>
+                    <a href="{{ url_for('views.supervisors') }}" class="btn btn-info btn-sm">Manage</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-diagram-3 h1 text-success"></i>
+                    <h5 class="card-title">Assignments</h5>
+                    <p class="card-text">Employee → Supervisor</p>
+                    <a href="{{ url_for('views.assignments') }}" class="btn btn-success btn-sm">Manage</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+{% elif current_user.role.value == 'SUPERVISOR' %}
+    <!-- Supervisor Dashboard -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-people h1 text-primary"></i>
+                    <h5 class="card-title">{{ assigned_employees }}</h5>
+                    <p class="card-text">Assigned Employees</p>
+                    <a href="{{ url_for('views.supervisor_attendance') }}" class="btn btn-primary btn-sm">View Attendance</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-calendar-check h1 text-success"></i>
+                    <h5 class="card-title">{{ today_attendance }}</h5>
+                    <p class="card-text">Today's Records</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% elif current_user.role.value == 'EMPLOYEE' %}
+    <!-- Employee Dashboard -->
+    {% if employee %}
+    <div class="alert alert-info">
+        <i class="bi bi-person-circle"></i> Employee: <strong>{{ employee.name }}</strong> ({{ employee.ep_number }})
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-calendar2-check h1 text-primary"></i>
+                    <h5 class="card-title">{{ this_month_records }}</h5>
+                    <p class="card-text">This Month's Records</p>
+                    <a href="{{ url_for('views.employee_records') }}" class="btn btn-primary btn-sm">View Details</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="bi bi-bar-chart"></i> Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <a href="{{ url_for('views.employee_records') }}" class="btn btn-outline-primary btn-sm me-2">
+                        <i class="bi bi-eye"></i> View Records
+                    </a>
+                    <a href="{{ url_for('views.export_data') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-download"></i> Export
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+
+<!-- Welcome message for new users -->
+{% if current_user.must_change_password %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    <strong>Welcome!</strong> Please change your password to continue using the system.
+    <a href="{{ url_for('auth.change_password') }}" class="btn btn-warning btn-sm ms-2">Change Password</a>
+</div>
+{% endif %}
+
+{% endblock %}

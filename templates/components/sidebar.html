@@ -1,0 +1,64 @@
+<div class="d-flex flex-column flex-shrink-0 p-3 bg-body-tertiary" style="min-height: calc(100vh - 56px);">
+    <ul class="nav nav-pills flex-column mb-auto">
+        <li class="nav-item">
+            <a href="{{ url_for('views.dashboard') }}" class="nav-link {{ 'active' if request.endpoint == 'views.dashboard' else '' }}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+        </li>
+        
+        {% if current_user.role.value == 'MASTER' %}
+            <li class="nav-item">
+                <a href="{{ url_for('views.companies') }}" class="nav-link {{ 'active' if 'companies' in request.endpoint else '' }}">
+                    <i class="bi bi-buildings"></i> Companies
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('views.master_users') }}" class="nav-link {{ 'active' if 'users' in request.endpoint else '' }}">
+                    <i class="bi bi-people"></i> Users
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('views.import_attendance') }}" class="nav-link {{ 'active' if 'import' in request.endpoint else '' }}">
+                    <i class="bi bi-upload"></i> Import Attendance
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('views.audit') }}" class="nav-link {{ 'active' if 'audit' in request.endpoint else '' }}">
+                    <i class="bi bi-journal-text"></i> Audit Log
+                </a>
+            </li>
+        
+        {% elif current_user.role.value == 'ROOT' %}
+            <li class="nav-item">
+                <a href="{{ url_for('views.supervisors') }}" class="nav-link {{ 'active' if 'supervisors' in request.endpoint else '' }}">
+                    <i class="bi bi-person-badge"></i> Supervisors
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('views.assignments') }}" class="nav-link {{ 'active' if 'assignments' in request.endpoint else '' }}">
+                    <i class="bi bi-diagram-3"></i> Assignments
+                </a>
+            </li>
+        
+        {% elif current_user.role.value == 'SUPERVISOR' %}
+            <li class="nav-item">
+                <a href="{{ url_for('views.supervisor_attendance') }}" class="nav-link {{ 'active' if 'attendance' in request.endpoint else '' }}">
+                    <i class="bi bi-calendar-check"></i> Attendance
+                </a>
+            </li>
+        
+        {% elif current_user.role.value == 'EMPLOYEE' %}
+            <li class="nav-item">
+                <a href="{{ url_for('views.employee_records') }}" class="nav-link {{ 'active' if 'records' in request.endpoint else '' }}">
+                    <i class="bi bi-calendar2-check"></i> My Records
+                </a>
+            </li>
+        {% endif %}
+        
+        <li class="nav-item">
+            <a href="{{ url_for('views.export_data') }}" class="nav-link">
+                <i class="bi bi-download"></i> Export Data
+            </a>
+        </li>
+    </ul>
+</div>

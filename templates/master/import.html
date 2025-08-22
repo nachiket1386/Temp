@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Import Attendance - LAMS{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('views.dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Import Attendance</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Import Attendance Data</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('views.download_template') }}" class="btn btn-outline-primary">
+            <i class="bi bi-download"></i> Download Template
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-upload"></i> Upload CSV File</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('views.upload_csv') }}" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                        <div class="form-text">
+                            Upload attendance data in CSV format. Maximum file size: 16MB.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Import Mode</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mode" id="validate" value="validate" checked>
+                            <label class="form-check-label" for="validate">
+                                <strong>Validate Only (Preview)</strong>
+                                <div class="form-text">Check for errors without saving data to database.</div>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mode" id="commit" value="commit">
+                            <label class="form-check-label" for="commit">
+                                <strong>Import Data (Commit)</strong>
+                                <div class="form-text">Save validated data to database. Creates/updates attendance records.</div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Process File
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="bi bi-info-circle"></i> CSV Format Requirements</h6>
+            </div>
+            <div class="card-body">
+                <h6>Required Columns (in order):</h6>
+                <ul class="list-unstyled small">
+                    <li><strong>EP number</strong> - Employee identifier</li>
+                    <li><strong>Name</strong> - Employee full name</li>
+                    <li><strong>Company</strong> - Company name</li>
+                    <li><strong>Plant</strong> - Plant/location</li>
+                    <li><strong>Department</strong> - Department name</li>
+                    <li><strong>Trade</strong> - Trade/skill category</li>
+                    <li><strong>Skill</strong> - Skill level</li>
+                    <li><strong>Date</strong> - DD-MM-YYYY format</li>
+                    <li><strong>IN1, OUT1</strong> - First in/out times</li>
+                    <li><strong>IN2, OUT2</strong> - Second in/out times</li>
+                    <li><strong>IN3, OUT3</strong> - Third in/out times</li>
+                    <li><strong>Hours Worked</strong> - Decimal hours</li>
+                    <li><strong>Overtime</strong> - Overtime hours</li>
+                    <li><strong>Status</strong> - P, A, -0.5, or -1</li>
+                </ul>
+                
+                <h6 class="mt-3">Time Format:</h6>
+                <p class="small">Use HH:MM format (24-hour). Leave blank if not applicable.</p>
+                
+                <h6 class="mt-3">Status Codes:</h6>
+                <ul class="list-unstyled small">
+                    <li><span class="badge bg-success">P</span> Present</li>
+                    <li><span class="badge bg-danger">A</span> Absent</li>
+                    <li><span class="badge bg-warning">-0.5</span> Half Day</li>
+                    <li><span class="badge bg-secondary">-1</span> Full Day Deduction</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="bi bi-lightbulb"></i> Import Process</h6>
+            </div>
+            <div class="card-body">
+                <ol class="small">
+                    <li>Download the template to ensure correct format</li>
+                    <li>Fill in your attendance data</li>
+                    <li>First, upload with "Validate Only" to check for errors</li>
+                    <li>Fix any validation errors in your CSV</li>
+                    <li>Upload again with "Import Data" to save to database</li>
+                </ol>
+                
+                <div class="alert alert-info mt-3 small">
+                    <strong>Note:</strong> New employee accounts will be automatically created with EP number as username and password.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

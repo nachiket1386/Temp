@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Assignments - LAMS{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('views.dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Assignments</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Employee Assignments</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAssignmentModal">
+            <i class="bi bi-diagram-3"></i> Create Assignment
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-diagram-3"></i> Current Employee → Supervisor Assignments</h5>
+            </div>
+            <div class="card-body">
+                {% if current_assignments %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>EP Number</th>
+                                <th>Assigned Supervisor</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for assignment, employee, supervisor in current_assignments %}
+                            <tr>
+                                <td>
+                                    <strong>{{ employee.name }}</strong>
+                                    <br><small class="text-muted">{{ employee.department or 'No dept' }} - {{ employee.trade or 'No trade' }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ employee.ep_number }}</span>
+                                </td>
+                                <td>
+                                    <strong>{{ supervisor.username }}</strong>
+                                    {% if supervisor.ep_number %}
+                                        <br><small class="text-muted">EP: {{ supervisor.ep_number }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ assignment.start_date.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    {% if assignment.end_date %}
+                                        {{ assignment.end_date.strftime('%Y-%m-%d') }}
+                                    {% else %}
+                                        <span class="badge bg-success">Ongoing</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if assignment.end_date %}
+                                        {{ (assignment.end_date - assignment.start_date).days + 1 }} days
+                                    {% else %}
+                                        {{ (moment().date() - assignment.start_date).days + 1 if moment else 'Ongoing' }} days
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-info" onclick="viewAssignment({{ assignment.id }})">
+                                            <i class="bi bi-eye"></i> View
+                                        </button>
+                                        <button class="btn btn-outline-warning" onclick="editAssignment({{ assignment.id }})">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-diagram-3 h1 text-muted"></i>
+                    <p class="text-muted">No active assignments found.</p>
+                    <p class="text-muted small">Assign employees to supervisors to enable attendance management.</p>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAssignmentModal">
+                        <i class="bi bi-diagram-3"></i> Create First Assignment
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if employees %}
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="bi bi-people"></i> Unassigned Employees</h6>
+            </div>
+            <div class="card-body">
+                {% set unassigned = [] %}
+                {% for employee in employees %}
+                    {% set has_assignment = false %}
+                    {% for assignment, _, _ in current_assignments %}
+                        {% if assignment.employee_id == employee.id %}
+                            {% set has_assignment = true %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if not has_assignment %}
+                        {% set _ = unassigned.append(employee) %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if unassigned %}
+                    <ul class="list-group list-group-flush">
+                        {% for employee in unassigned[:5] %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ employee.name }}</strong>
+                                <br><small class="text-muted">{{ employee.ep_number }}</small>
+                            </div>
+                            <button class="btn btn-outline-primary btn-sm" onclick="assignEmployee('{{ employee.id }}', '{{ employee.name }}', '{{ employee.ep_number }}')">
+                                <i class="bi bi-plus"></i> Assign
+                            </button>
+                        </li>
+                        {% endfor %}
+                        {% if unassigned|length > 5 %}
+                        <li class="list-group-item text-center">
+                            <small class="text-muted">... and {{ unassigned|length - 5 }} more</small>
+                        </li>
+                        {% endif %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted text-center">All employees are assigned.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="bi bi-person-badge"></i> Available Supervisors</h6>
+            </div>
+            <div class="card-body">
+                {% if supervisors %}
+                    <ul class="list-group list-group-flush">
+                        {% for supervisor, profile in supervisors %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ supervisor.username }}</strong>
+                                {% if supervisor.ep_number %}
+                                    <br><small class="text-muted">EP: {{ supervisor.ep_number }}</small>
+                                {% endif %}
+                            </div>
+                            <div>
+                                {% set assignment_count = profile.assignments.filter_by().count() %}
+                                <span class="badge bg-info">{{ assignment_count }} assigned</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted text-center">No supervisors available. <a href="{{ url_for('views.supervisors') }}">Create supervisors</a> first.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Create Assignment Modal -->
+<div class="modal fade" id="createAssignmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('views.create_assignment') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-diagram-3"></i> Create New Assignment
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="employee_id" class="form-label">Employee</label>
+                        <select class="form-select" id="employee_id" name="employee_id" required>
+                            <option value="">Select Employee</option>
+                            {% for employee in employees %}
+                                <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.ep_number }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="supervisor_id" class="form-label">Supervisor</label>
+                        <select class="form-select" id="supervisor_id" name="supervisor_id" required>
+                            <option value="">Select Supervisor</option>
+                            {% for supervisor, profile in supervisors %}
+                                <option value="{{ profile.id }}">{{ supervisor.username }}{% if supervisor.ep_number %} ({{ supervisor.ep_number }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="end_date" class="form-label">End Date (Optional)</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date">
+                        <div class="form-text">Leave empty for open-ended assignment.</div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <small>The system will prevent overlapping assignments for the same employee.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-diagram-3"></i> Create Assignment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Set today's date as default for start date
+document.getElementById('start_date').valueAsDate = new Date();
+
+function assignEmployee(employeeId, employeeName, epNumber) {
+    // Pre-fill the assignment modal with selected employee
+    document.getElementById('employee_id').value = employeeId;
+    const modal = new bootstrap.Modal(document.getElementById('createAssignmentModal'));
+    modal.show();
+}
+
+function viewAssignment(assignmentId) {
+    // Implementation for viewing assignment details
+    alert('Assignment details view - to be implemented');
+}
+
+function editAssignment(assignmentId) {
+    // Implementation for editing assignment
+    alert('Assignment editing - to be implemented');
+}
+
+// Validate end date is after start date
+document.getElementById('end_date').addEventListener('change', function() {
+    const startDate = document.getElementById('start_date').value;
+    const endDate = this.value;
+    
+    if (startDate && endDate && endDate < startDate) {
+        alert('End date cannot be before start date.');
+        this.value = '';
+    }
+});
+</script>
+{% endblock %}

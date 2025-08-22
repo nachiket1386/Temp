@@ -1,0 +1,495 @@
+Below is a complete, comprehensive planning brief you can hand to a developer or an AI code generator to build the Labour Attendance Management system. It defines requirements, roles/permissions, data model, UX, workflows, validation, logging, notifications, dashboards, and acceptance criteria before any coding starts.
+
+Title
+Labour Attendance Management System (LAMS)
+
+Project Goal
+Build a role-based, responsive web application for managing employee attendance, edits, and reporting with strong CSV import/export, validation, audit trails, and in-app notifications.
+
+Stack Constraints
+- Frontend: HTML, CSS, vanilla JavaScript (no frontend frameworks)
+- Backend: Django
+- Database: SQLite (dev/PoC); migration-friendly to Postgres for production
+
+Core Roles
+- Master user (Admin Planner)
+- User1 (Root user)
+- User2 (Supervisor)
+- User3 (Employee)
+
+High-Level Modules
+- Authentication and Role Management
+- Company and Master Data (Company, Plant, Department, Trade, Skill)
+- Attendance Management (Import/Export, Edit, Validate)
+- Assignment Management (Employee to Supervisor, date-wise)
+- Remarks Workflow
+- Audit & Logging
+- Notifications (role-based)
+- Dashboards (role-based, customizable)
+- Reports
+
+Permissions Matrix
+| Action | Master | User1 (Root) | User2 (Supervisor) | User3 (Employee) |
+|---|---|---|---|---|
+| Create Company | Yes | No | No | No |
+| Create User1 | Yes | No | No | No |
+| Upload Attendance CSV | Yes | No | No | No |
+| Auto-create User3 on upload | Yes (implicit) | No | No | No |
+| View data | All companies | Only their company | Only assigned EPs | Only self |
+| Create User2 | No | Yes (username = EP) | No | No |
+| Assign Employee→Supervisor (date-wise) | No | Yes | No | No |
+| Reset passwords (User2/User3) | No | Yes | No | No |
+| Edit attendance times/overtime/status | No | No | Yes (assigned only) | No |
+| Add remarks | No | Optional | Yes | Yes (self only) |
+| Export CSV (filtered) | Yes | Yes (company scope) | Yes (assigned scope) | Yes (self scope) |
+| View audit logs | Yes (all) | Yes (company) | Yes (assigned) | No |
+| View/Receive Notifications | Yes | Yes | Yes | Yes |
+| Customize dashboard | Yes | Yes | Yes | Yes |
+
+Domain Rules
+- EP number uniquely identifies an employee within a company.
+- On any attendance CSV upload by Master:
+  - Upsert attendance by unique key (EP number + date).
+  - Auto-provision User3 accounts (Employee) if not existing; username = EP number; initial password = EP number.
+- User1 can:
+  - Create User2 (Supervisor) accounts; username must be the EP number.
+  - Reset passwords for User2 and User3.
+  - Assign employees to supervisors by date (single day or date range). Date-wise assignments can be changed later.
+- User2 can only view and edit attendance for assigned EPs, can add remarks, filter status/date, and export assigned data.
+- User3 only views their own records, sees monthly status summary, can filter by status and add remarks to their own records.
+
+CSV Specifications
+- Only Master can upload attendance CSVs.
+- Template header (order fixed):
+  EP number,Name,Company,Plant,Department,Trade,Skill,Date,IN1,OUT1,IN2,OUT2,IN3,OUT3,Hours Worked,Overtime,Status
+- Date format: DD-MM-YYYY
+- Time format: HH:MM (24-hour); blank allowed if not applicable
+- Hours Worked, Overtime: numeric (decimals allowed, e.g., 8.50)
+- Status: one of {P, A, -0.5, -1}
+
+Sample CSV
+EP number,Name,Company,Plant,Department,Trade,Skill,Date,IN1,OUT1,IN2,OUT2,IN3,OUT3,Hours Worked,Overtime,Status
+EP001,John Doe,Acme Ltd,Plant1,Assembly,Welder,Skilled,12-08-2025,09:00,13:00,14:00,18:00,,,8.00,1.00,P
+EP002,Jane Roe,Acme Ltd,Plant1,Assembly,Fitter,Semi,12-08-2025,,,,,,,,0.00,0.00,A
+
+Import Modes
+- Validate-only preview (default): show row-wise errors and warnings; nothing saved.
+- Upsert (commit): creates or updates attendance by (EP number + Date). Missing times allowed. If a record exists, non-empty values patch over; empty cells do not overwrite existing values.
+- Errors to detect:
+  - Wrong date or time format
+  - Invalid status
+  - Unknown company (reject row)
+  - EP number missing
+  - Hours/Overtime non-numeric
+- Import result: summary counters (inserted, updated, skipped, errors) + downloadable error CSV.
+
+Export
+- Any filtered dataset exportable to CSV by all roles, limited by their data visibility.
+- Export uses same columns as template; includes remarks if requested.
+
+Data Model Blueprint
+Use Django models; field suggestions below are conceptual. Enforce unique and foreign-key constraints.
+
+- Company
+  - id, name (unique), created_at
+
+- User (Django’s auth.User or custom)
+  - id, username (unique)
+  - role: enum {MASTER, ROOT, SUPERVISOR, EMPLOYEE}
+  - company (FK, nullable for Master)
+  - ep_number (nullable except for User2/User3 where it equals username)
+  - is_active, must_change_password (bool)
+
+- Employee
+  - id, company (FK), ep_number (unique per company), name
+  - plant (FK or string), department (FK or string), trade (FK or string), skill (FK or string)
+  - user (FK to User3), optional but created on first attendance import
+
+- Master Data (optional normalization; else store as strings on attendance)
+  - Plant(id, company, name)
+  - Department(id, company, name)
+  - Trade(id, company, name)
+  - Skill(id, company, name)
+
+- SupervisorProfile
+  - id, user (FK to User2), company (FK)
+
+- Assignment
+  - id, employee (FK), supervisor (FK to SupervisorProfile)
+  - start_date, end_date (nullable for open-ended)
+  - unique constraint: no overlapping date ranges per employee
+  - audit fields: created_by, created_at
+
+- AttendanceRecord
+  - id, employee (FK), company (denormalized for filtering)
+  - date (Date), unique together (employee, date)
+  - plant, department, trade, skill (string; store from CSV; can be cross-checked with master data)
+  - in1, out1, in2, out2, in3, out3 (Time, nullable)
+  - hours_worked (Decimal), overtime (Decimal), status (Char)
+  - last_edit_by (FK User), last_edit_at (DateTime)
+  - remarks_count (int cached)
+  - soft_deleted (bool default false)
+
+- Remark
+  - id, attendance (FK), author (FK User), text, created_at
+  - visibility: default to all users with access to the attendance record
+  - status: enum {SUBMITTED, SEEN} for workflow-driven notifications
+
+- Notification
+  - id, recipient (FK User), title, message, type: enum {LATENESS, ABSENCE, OVERTIME, ASSIGNMENT_CHANGE, REMARK, ANNOUNCEMENT}
+  - related_object_type/id (generic FK), created_at, read_at (nullable)
+
+- AuditLog
+  - id, actor (FK User), action: enum {CREATE, UPDATE, DELETE, RESTORE, IMPORT}
+  - object_type, object_id, field_changes (JSON: field -> {old, new})
+  - timestamp, context (e.g., “CSV Import: filename.csv, row 37”)
+
+- DashboardPreference
+  - id, user (FK), layout (JSON: widgets, order, filters)
+
+- SystemAnnouncement
+  - id, title, content, created_by, audience: enum {ALL, COMPANY, ROLE}, created_at
+
+Key Constraints and Indexes
+- Unique(Employee, Date) on AttendanceRecord
+- Indexes on AttendanceRecord: company, date, status, employee_id
+- Unique per company: Employee.ep_number
+- Assignments: prevent overlapping ranges for each employee
+- Users: username unique; for User2/User3: username = EP number (enforce via validation)
+
+Authentication & Security
+- Django session auth + CSRF protection
+- Password hashing (Django default)
+- Initial password = EP number for User2/User3; force must_change_password on first login
+- Password reset:
+  - Master: can reset User1
+  - User1: can reset User2 and User3
+- Role-based access control using decorators/mixins; deny by default
+- Rate limiting (basic): throttle login attempts to mitigate brute force
+
+Workflows by Role
+Master (Admin Planner)
+- Create Company and User1 (Root) for that company
+- Upload/Preview/Commit Attendance CSV (only Master)
+- Auto-creates Employee and User3 accounts on import
+- View system-wide logs, manage announcements, export all data
+- Cannot edit individual attendance
+
+User1 (Root – per company)
+- Create User2 accounts (username = EP number)
+- Reset passwords for User2 and User3
+- Assign employees to supervisors by date or date range; edit/reassign per day for tracking
+- View only their company data and audit logs (company scope)
+- Export company-scoped filtered CSV
+- Cannot upload attendance CSV
+
+User2 (Supervisor)
+- See only assigned EPs
+- Filter by status (P, A, -0.5, -1) and by date range (from_date, to_date)
+- Inline edit IN/OUT times, Overtime, and optionally update Status if permitted; add remarks
+- Export assigned data
+- See audit log entries related to their assigned EPs
+
+User3 (Employee)
+- View only own records
+- Monthly summary by status with counts (e.g., P=20, A=2, -0.5=1, -1=0)
+- Click a status chip to see filtered records; add remarks to specific dates
+- Export self data
+
+UI/UX Requirements
+Global
+- Top navbar: app title, company switcher (for Master), role badge, notification bell with unread count, profile menu
+- Left sidebar (desktop): navigation by role; collapsible
+- Breadcrumbs and clear page titles
+- Responsive design:
+  - Desktop: 3-column layouts where applicable; table-like “desktop software” feel; dense data tables
+  - Tablet: 1–2 column adaptive layout; larger tap targets
+  - Mobile: single-column, cards for attendance rows; sticky filter bar
+- Theming: CSS variables for colors; high-contrast status chips
+- Status chips/colors: P=green, A=red, -0.5=orange, -1=purple
+- Accessibility: Keyboard navigation, focus outlines, aria labels on interactive elements
+
+Screens and Components
+Authentication
+- Login (username, password)
+- First login: force change password if must_change_password
+- Logout
+
+Master
+- Companies: list/create company
+- Root Users: list/create User1 per company, reset password
+- Attendance Import:
+  - Download template button
+  - Upload file, parse + preview table
+  - Row-level and column-level errors with tooltips
+  - Commit import (Upsert) with summary dialog
+- System-wide Audit Log with filters (date range, user, action, object type)
+- Announcements: create and publish
+- Exports: global filtered export
+
+User1
+- Supervisors: list/create User2; reset passwords
+- Assignments:
+  - Table: Employee, current supervisor, date range(s)
+  - Create/edit: choose supervisor, date or date range
+  - Calendar/day view to quickly reassign per day for special cases
+- Company Audit Log
+- Reports/Exports (company scope)
+
+User2
+- Dashboard: KPIs (Assigned EPs, Today’s P/A/-0.5/-1 counts, Overtime total, Pending remarks)
+- Attendance Table (assigned EPs):
+  - Filters: status multi-select; from_date, to_date; EP search; plant/department
+  - Inline Edit: click a cell to edit time or overtime; Save/Cancel per row; bulk save option
+  - Remarks: add/view on each record
+  - Export filtered dataset
+- Audit View (assigned scope)
+
+User3
+- Home: Monthly status summary chips; a calendar-like summary optional
+- List: filtered by clicked status; columns show times, hours, overtime, status, remarks
+- Add Remark modal
+- Export self data
+
+CSV Import/Export & Validation
+- Template: downloadable empty CSV with headers
+- Validation UX:
+  - On upload, show:
+    - Errors (e.g., “Row 7: Invalid Date ‘13/08/25’; expected DD-MM-YYYY”)
+    - Warnings (e.g., “Unknown Plant ‘P2’; saving as text”)
+  - Preview grid with invalid cells highlighted
+  - Option: Export “error CSV” with appended error column
+- Upsert semantics:
+  - Unique key: (EP number + Date)
+  - For updates, non-empty cells overwrite; empty cells leave existing values unchanged
+- Export:
+  - Honors filters + role scope
+  - Same schema as template
+  - Optional include remarks (additional column “Remarks (concatenated)”)
+
+Assignments (Date-wise)
+- Data model supports per-day or range
+- UI supports:
+  - Assign by range for steady state
+  - Quick “day override” reassignments (e.g., one day under Supervisor 2)
+- Validation prevents overlapping assignments per employee
+- Audit each change (old supervisor, new supervisor, date range)
+
+Editing Attendance (User2 only)
+- Allowed fields: IN1/OUT1, IN2/OUT2, IN3/OUT3, Hours Worked, Overtime, optional Status if configured by company policy
+- Each edit logged with old/new values, timestamp, and user
+- Remarks required for certain changes (configurable), at least for Status changes
+
+Remarks Workflow
+- Any user with access can add remarks as allowed:
+  - User2: for records they manage
+  - User3: for self records
+- Notifications:
+  - To supervisor when employee adds a remark on assigned record
+  - To employee when supervisor modifies their record
+- Remarks status: SUBMITTED -> SEEN (on view)
+- Remarks visible in record detail and exportable (optional)
+
+Notifications
+- Bell icon with unread count
+- Dropdown of latest notifications with type icons and time ago
+- Types:
+  - Lateness (e.g., IN1 after 09:00 if such rules are enabled)
+  - Absence (Status A)
+  - Overtime beyond threshold (configurable)
+  - Assignment changes
+  - Remark events
+  - Announcements
+- Delivery model: create Notification rows; fetch via polling (e.g., every 30–60s) to avoid websockets
+- “Mark all as read” button and per-item read state
+
+Audit & Advanced Logging
+- Log on:
+  - Attendance create/update/delete/restore
+  - CSV import (per row successes and failures summarized; details on demand)
+  - Assignment create/update/delete
+  - Password resets and user creation
+  - Announcements
+- Store field-level deltas in JSON
+- UI to filter by actor, object, date range; detail view shows before/after
+
+Dashboards (Role-Based Customization)
+- Widgets:
+  - Status breakdown (pie/donut)
+  - Overtime totals by date range
+  - Absences by department
+  - Top lateness incidents
+  - Pending remarks
+  - Recent changes (audit)
+- Users can:
+  - Add/remove widgets
+  - Reorder via drag-and-drop
+  - Save default filters (e.g., date range)
+- Store as JSON in DashboardPreference
+
+Reports
+- Standard reports per role scope:
+  - Daily register by status
+  - Overtime summary (by employee, by department)
+  - Absences list
+  - Edit history (audit) report
+- Export as CSV (and printable HTML)
+
+Non-Functional Requirements
+- Performance: handle ~50k attendance rows imports on SQLite with streaming parse; progress feedback; use bulk_create and bulk_update
+- Robustness: transaction per import batch; partial failure handling with clear error output
+- Internationalization-ready (time zone configurable; default company TZ)
+- Logging: server logs for errors with request IDs
+- Data privacy: ensure role-scoped query filters everywhere
+- Migration pathway to PostgreSQL documented
+
+Django App Structure (suggested)
+- app: accounts (custom user model, roles, password resets, auth views)
+- app: companies (company setup, master data)
+- app: attendance (records, imports, exports, validations)
+- app: assignments (employee-supervisor linkage)
+- app: remarks (remarks and workflow)
+- app: audit (signals and log views)
+- app: notifications (models, polling API)
+- app: dashboard (widgets and preferences)
+- app: reports (CSV/printable reports)
+- core: utils (validators, parsers, CSV helpers)
+
+API Endpoints (JSON over standard Django views; CSRF-protected; use fetch)
+Auth
+- POST /auth/login
+- POST /auth/logout
+- POST /auth/change-password
+- POST /auth/reset-password (privileged)
+
+Attendance
+- GET /api/attendance?filters...
+- POST /api/attendance/import (file upload by Master)
+- GET /api/attendance/export?filters...
+- PATCH /api/attendance/{id} (User2)
+- GET /api/attendance/{id}/audit
+
+Assignments
+- GET /api/assignments?employee=…&date_range=…
+- POST /api/assignments (User1)
+- PATCH /api/assignments/{id}
+- DELETE /api/assignments/{id}
+
+Users & Employees
+- POST /api/users/root (Master)
+- POST /api/users/supervisor (User1; username=EP)
+- POST /api/users/reset-password (User1 for User2/User3)
+- GET /api/employees?filters… (scoped)
+
+Remarks
+- GET /api/attendance/{id}/remarks
+- POST /api/attendance/{id}/remarks
+
+Notifications
+- GET /api/notifications?unread=1
+- POST /api/notifications/{id}/read
+- POST /api/notifications/mark-all-read
+
+Audit
+- GET /api/audit?filters…
+
+Dashboard
+- GET /api/dashboard/widgets
+- POST /api/dashboard/widgets
+- PATCH /api/dashboard/widgets/{id}
+- DELETE /api/dashboard/widgets/{id}
+
+Validation Rules (Strict)
+- Date: DD-MM-YYYY; reject otherwise; store as DateField
+- Time: HH:MM (24h); allow blank; store as TimeField or null
+- Status: in {P, A, -0.5, -1}
+- Numbers: Hours Worked, Overtime: decimal with two places; if provided and times provided, optionally validate consistency (configurable)
+- EP number: not empty; for existing employees, must match company
+- Company/Plant/Department/Trade/Skill: allow free text but warn if unknown to master data
+- Upsert: (EP + Date) unique; conflict -> patch only non-empty fields
+
+Security and Privacy
+- Server-side permission checks on every endpoint
+- Limit exports to scoped data
+- Mask passwords; enforce password change on first login for User2/User3
+- Session timeout (e.g., 30 minutes of inactivity)
+
+Responsive Design Details
+- Breakpoints:
+  - Mobile: <= 600px
+  - Tablet: 601–1024px
+  - Desktop: > 1024px
+- Desktop: fixed-width tables with sticky headers, inline editing; keyboard navigation (Tab/Enter)
+- Tablet/Mobile: stacked cards, collapsible detail rows; sticky filter bar; larger inputs
+- CSS: use Grid/Flexbox; CSS variables for theme; custom scrollbar; no external CSS frameworks
+
+Acceptance Criteria (must pass)
+Master
+- Can create a company and a User1
+- Can upload attendance CSV; preview shows row-wise errors; commit results in upserts
+- Auto-created User3 accounts (username/password = EP) visible in user list; must_change_password set
+
+User1
+- Can create User2 with username = EP number only
+- Can reset passwords for User2/User3
+- Can assign employees to supervisors by date; overlapping prevented; reassignment by single date works
+- Sees only their company data
+
+User2
+- Sees only assigned EPs
+- Can inline edit IN/OUT/Ot/Status; changes persist and are audited
+- Can filter by status and date range; export filtered data
+- Sees notifications for remarks and assignment changes
+
+User3
+- Sees only own data
+- Monthly status summary visible; clicking shows filtered list
+- Can add remarks to specific records; supervisor gets notified
+
+Audit & Notifications
+- Every create/update/delete/import has an audit entry with actor, timestamp, and old/new values
+- Notifications show in bell with unread count; can mark read; recipients receive relevant alerts by role
+
+Test Scenarios (examples)
+- Import: Invalid date format flagged; does not commit invalid row; other valid rows commit
+- Import upsert: Update only non-empty fields; empty cells do not erase existing values
+- Assignment overlap: Prevent if new range overlaps existing for same employee
+- Password reset by User1: Works for User2/User3; login requires new password
+- Permissions: User2 cannot view or edit unassigned employee records; User3 cannot edit times
+- Export: Filters honored; only scoped data exported
+- Audit: Editing a time writes old/new values; visible to authorized roles
+- Notifications: Adding a remark as User3 triggers a notification to assigned User2
+
+Data Seeding and Templates
+- Provide downloadable CSV template (only headers) from Master import page
+- Optional sample data generator for dev (companies, employees, few weeks of attendance)
+
+Deployment/Environment
+- Python 3.11+; Django 4.2+ or 5.x
+- SQLite for dev; document Postgres migration steps
+- Environment variables for secret key, debug, allowed hosts, time zone
+- Static files via Django’s staticfiles; no CDN dependency
+
+Open Items to Confirm (if needed)
+- Company-level rules for lateness threshold (default 09:00?) and overtime thresholds
+- Whether User2 can edit Status or only times/overtime; default: allowed with remark required
+- Whether Hours Worked is auto-calculated from times or accepted as provided; default: accept provided, optionally recalc if a toggle is enabled
+
+Deliverables (MVP)
+- Fully functional role-based web app per above spec
+- CSV import/export with strict validation
+- Date-wise assignment UX
+- Inline editing for supervisors with audit
+- Remarks and in-app notifications
+- Role-based customizable dashboards
+- Comprehensive audit UI
+- Responsive UI for desktop/tablet/mobile
+
+Definition of Done
+- All acceptance criteria met
+- Unit tests for validators and permission checks
+- Integration tests for import, edit, assignment flows
+- Accessibility pass for keyboard and labels
+- Documentation: install, run, and user guide with screenshots
+
+Use this brief as the single source of truth to build the Django + HTML/CSS/vanilla JS + SQLite Labour Attendance Management system, ensuring “plan first, then build” with clear requirements, architecture, and acceptance tests.
